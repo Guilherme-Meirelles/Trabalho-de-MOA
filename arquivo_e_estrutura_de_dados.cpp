@@ -3,7 +3,6 @@
 #include <string>
 #include <vector>
 #include <sstream>
-
 using namespace std;
 
 struct Coluna{
@@ -11,9 +10,13 @@ struct Coluna{
     vector<int> linhas;
 };
 
-vector<Coluna> tabela_de_dados;
 int colunas;
 int linhas;
+vector<Coluna> tabela_de_dados;
+vector<vector<int>> lista_de_adjacencia_linhas;
+
+
+
 
 vector<string> fatiamento_de_string(string string_para_fatiar){
     vector<string> vetor_de_string;
@@ -24,6 +27,7 @@ vector<string> fatiamento_de_string(string string_para_fatiar){
     }
     return vetor_de_string;
 }
+
 
 void construcao_da_tabela(string nome_do_arquivo){
 
@@ -56,19 +60,46 @@ void construcao_da_tabela(string nome_do_arquivo){
     Arquivo.close();
 }
 
+void montar_lista_de_adjacencia(){
+
+    int linha_unica;
+    lista_de_adjacencia_linhas.resize(linhas);
+
+    for(int i = 0; i < colunas; i++){
+        for (int j = 0; j < tabela_de_dados[i].linhas.size(); j++){
+            linha_unica = tabela_de_dados[i].linhas[j];
+            lista_de_adjacencia_linhas[linha_unica-1].push_back(i+1);
+        }
+    }
+
+}
+
 int main(){
     
     construcao_da_tabela("./Tabela/Teste_01.dat");
     
     cout << linhas << endl;
     cout << colunas << endl;
-    for (int i = 0; i < tabela_de_dados.size(); i++){
+    for (int i = 0; i < colunas; i++){
         cout << i+1 << ". Peso: " << tabela_de_dados[i].peso << "   Linhas: ";
         for (int j = 0; j < tabela_de_dados[i].linhas.size(); j++){
             cout << tabela_de_dados[i].linhas[j] << ", ";
         }
         cout << endl;
     }
+    cout << endl << "Lista de adjacência" << endl;
+
+    montar_lista_de_adjacencia();
+    
+    for (int i = 0; i < linhas; i++){
+        
+        cout << endl << "Linha " <<i+1 << ". ";
+        for (int j = 0; j < lista_de_adjacencia_linhas[i].size(); j++){
+            cout << lista_de_adjacencia_linhas[i][j] << ", ";
+        }
+        cout << endl;
+    }
+        
     
     return 0;
 }
