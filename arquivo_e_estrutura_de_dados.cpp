@@ -400,7 +400,7 @@ void construir_populacao(int funcao, float alpha, int alvo, int max_tentativas){
         tentativas = tentativas + 1;
     }
 }
-
+/*
 int main(){
 
     // Carrega a instancia e monta as estruturas de apoio.
@@ -456,3 +456,102 @@ int main(){
 
     return 0;
 }
+*/
+
+// Função criada para executar com menos comentários o algoritmo de construção
+int solucoes_algoritmo_de_construcao(){
+
+    construcao_da_tabela("./Tabela/Teste_01.dat");
+    montar_lista_de_adjacencia();
+
+    for (int funcao = 1; funcao <= 7; funcao++){
+        construcao_gulosa(funcao);
+        float guloso = custo_total;
+        eliminar_redundancia();
+    }
+    
+    float alphas[] = {0.10f, 0.20f, 0.30f};
+    int repeticoes = 50;
+    for (int funcao = 1; funcao <= 7; funcao++){
+        for (int a = 0; a < 3; a++){
+            gerador.seed(SEMENTE);   // mesma semente por config para comparacao justa
+            experimento_randomizado(funcao, alphas[a], repeticoes);
+        }
+    }
+        
+    gerador.seed(SEMENTE);
+    construir_populacao(func_global, alpha_global, 50, 1000);
+
+    float melhor = -1;
+    float soma = 0;
+    for (int i = 0; i < populacao.size(); i++){
+        soma = soma + populacao[i].custo;
+        if (melhor < 0 || populacao[i].custo < melhor){
+            melhor = populacao[i].custo;
+        }
+    }
+    
+    cout << endl << "Populacao final: " << populacao.size() << " solucoes distintas" << endl;
+    cout << "Melhor custo = " << setprecision(2) << melhor
+         << "   custo medio = " << soma / populacao.size() << endl;
+    return 0;
+}
+/*
+int execucao_dos_algoritmos_de_construcao(){
+
+    // Carrega a instancia e monta as estruturas de apoio.
+    construcao_da_tabela("./Tabela/Teste_01.dat");
+    montar_lista_de_adjacencia();
+
+    cout << fixed << setprecision(2);
+    cout << "Linhas: " << linhas << "   Colunas: " << colunas << endl;
+
+    // Baseline: solucao de cada uma das 7 funcoes gulosas deterministicas.
+    cout << endl << "Construcao Gulosa deterministica - 7 funcoes" << endl << endl;
+    for (int funcao = 1; funcao <= 7; funcao++){
+        construcao_gulosa(funcao);
+        float guloso = custo_total;
+        eliminar_redundancia();
+        cout << "Funcao " << funcao
+             << ":   guloso = " << setprecision(2) << guloso
+             << "   pos-reducao = " << custo_total
+             << " (" << contar_colunas_selecionadas() << " col)" << endl;
+    }
+
+    // Varredura: testa cada funcao com varios alpha para descobrir a config mais promissora.
+    cout << endl << "Construcao Gulosa Randomizada (GRASP) - varredura de alpha" << endl << endl;
+    float alphas[] = {0.10f, 0.20f, 0.30f};
+    int repeticoes = 50;
+    for (int funcao = 1; funcao <= 7; funcao++){
+        for (int a = 0; a < 3; a++){
+            gerador.seed(SEMENTE);   // mesma semente por config para comparacao justa
+            experimento_randomizado(funcao, alphas[a], repeticoes);
+        }
+    }
+
+    cout << endl << "Melhor configuracao: funcao " << func_global
+         << "  alpha " << fixed << setprecision(2) << alpha_global
+         << "  (melhor custo " << setprecision(2) << melhor_global << ")" << endl;
+
+    // Monta a populacao final com a melhor config encontrada.
+    gerador.seed(SEMENTE);
+    construir_populacao(func_global, alpha_global, 50, 1000);
+
+    float melhor = -1;
+    float soma = 0;
+    for (int i = 0; i < populacao.size(); i++){
+        soma = soma + populacao[i].custo;
+        if (melhor < 0 || populacao[i].custo < melhor){
+            melhor = populacao[i].custo;
+        }
+    }
+
+    cout << endl << "Populacao final: " << populacao.size() << " solucoes distintas" << endl;
+    cout << "Melhor custo = " << setprecision(2) << melhor
+         << "   custo medio = " << soma / populacao.size() << endl;
+
+    return 0;
+}
+*/
+
+

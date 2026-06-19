@@ -48,6 +48,9 @@ linhas já estão todas cobertas por outras colunas. A remoção é feita das co
 caras para as mais baratas, reduzindo o custo da solução sem deixar nenhuma linha
 descoberta.
 
+### Seleção do algoritmo genético 
+A partir das soluções obtidas deve se selecionar quais soluções passarão para os estágios de cruzamento e mutação do algoritmo genético, essa escolha deve ser feita probabilisticamente com a soluções de menor custo tendo mais chance de serem escolhidas. Foi implementado um algoritmo que escolhe probabilisticamente sempre duas soluções obtidas.
+
 ## Como compilar e rodar
 O projeto usa C++ (compilador g++ do MSYS2 / UCRT64). Para compilar e executar:
 
@@ -57,6 +60,8 @@ g++ -std=c++17 arquivo_e_estrutura_de_dados.cpp -o arquivo_e_estrutura_de_dados.
 ```
 
 No VS Code também é possível compilar pela tarefa de build (Ctrl+Shift+B).
+
+
 
 ## Próximos passos
 - Algoritmo Genético (população inicial, seleção, cruzamento e mutação);

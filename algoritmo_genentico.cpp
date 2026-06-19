@@ -15,13 +15,11 @@ Se o valor sorteado está entre dois elementos do vetor, escolhe-se o elemento m
 // Função para sortear um número
 #include <random>
 #include <iostream>
+#include "arquivo_e_estrutura_de_dados.cpp"
 
 using namespace std;
 
-struct Solucao{
-    float custo;
-    vector<int> colunas;
-};
+
 
 struct Sorteados {
     double primeiro;
@@ -46,7 +44,7 @@ vector<double> vetor_de_probabilidade(vector<Solucao> solucoes){
 
     }
 
-    double multiplicador = 1 / soma_solucoes;
+    double multiplicador = 100 / soma_solucoes;
 
     vetor_auxiliar[0] *= multiplicador;
 
@@ -60,26 +58,24 @@ vector<double> vetor_de_probabilidade(vector<Solucao> solucoes){
 
 }
 
-Sorteados sorteaar_de_0_a_1()
+Sorteados sorteaar_de_0_a_100()
 {
     random_device rd;   // non-deterministic generator
     mt19937 gen(rd());  // to seed mersenne twister.
                         // replace the call to rd() with a
                         // constant value to get repeatable
                         // results.
-    uniform_real_distribution<> dist(0.0, 1.0);
+    uniform_real_distribution<> dist(0.0, 100.0);
 
     Sorteados resultado = {dist(gen), dist(gen)};
     return resultado;
 }
 
-void solucoes_sorteadas(vector<Solucao> solucoes){
+void solucoes_sorteadas(vector<double> vetor_solucoes_inversas, Sorteados numeros_sorteados){
 
-    vector<double> vetor_solucoes_inversas = vetor_de_probabilidade(solucoes);
-    Sorteados numeros_sorteados = sorteaar_de_0_a_1();
     
 
-    int indice_primeiro, indice_segundo = 0;
+    int indice_primeiro = 0, indice_segundo = 0;
     int k = 1;
     int tamanho_do_vetor = vetor_solucoes_inversas.size();
     while (indice_primeiro < tamanho_do_vetor && k){
@@ -115,4 +111,20 @@ void solucoes_sorteadas(vector<Solucao> solucoes){
     solucoes_selecionadas.primeiro = indice_primeiro;
     solucoes_selecionadas.segundo = indice_segundo;
     
+}
+
+int main(){
+
+    solucoes_algoritmo_de_construcao();
+    vector<double> vetor_solucoes_inversas = vetor_de_probabilidade(populacao);
+    Sorteados numeros_sorteados = sorteaar_de_0_a_100();
+    /*
+    for (int i = 0; i < vetor_solucoes_inversas.size(); i++){
+        cout << vetor_solucoes_inversas[i] << endl;
+    }
+    */
+    cout << endl <<"Numeros sorteados: ";
+    cout << numeros_sorteados.primeiro << " " << numeros_sorteados.segundo << endl;
+    solucoes_sorteadas(vetor_solucoes_inversas, numeros_sorteados);
+    cout << "Primeira solução escolhida:" << int(solucoes_selecionadas.primeiro) << " . Segunda solução escolhida:" << int(solucoes_selecionadas.segundo) << endl;
 }
