@@ -8,7 +8,7 @@ Para facilitar na seleção podemos somar todos os elementos dester vetor pelo e
 
 Para selecionar probabilisticamente, podemos escolher sortear um número aleatório no intervalo de 0 a 1, 
 e a partir disso selecionar a solução que está nesta faixa de valores armazenados.
-Se o valor sentido está entre dois elementos do vetor, escolhe-se o elemento maior.
+Se o valor sorteado está entre dois elementos do vetor, escolhe-se o elemento maior.
 
 */
 
@@ -18,7 +18,49 @@ Se o valor sentido está entre dois elementos do vetor, escolhe-se o elemento ma
 
 using namespace std;
 
-int main()
+struct Solucao{
+    float custo;
+    vector<int> colunas;
+};
+
+struct Sorteados {
+    double primeiro;
+    double segundo;
+};
+
+// Armazena o indice das soluções selecionadas
+Sorteados solucoes_selecionadas;
+
+
+vector<double> vetor_de_probabilidade(vector<Solucao> solucoes){
+
+    vector<double> vetor_auxiliar;
+    double solucao_inversa;
+    double soma_solucoes = 0.0;
+
+    for (int i = 0; i < solucoes.size(); i++){
+
+        solucao_inversa = 1 / solucoes[i].custo;
+        soma_solucoes += solucao_inversa;
+        vetor_auxiliar.push_back(solucao_inversa);
+
+    }
+
+    double multiplicador = 1 / soma_solucoes;
+
+    vetor_auxiliar[0] *= multiplicador;
+
+    for (int i = 1; i < vetor_auxiliar.size(); i++){
+
+        vetor_auxiliar[i] *= multiplicador;
+        vetor_auxiliar[i] += vetor_auxiliar[i-1];
+    }
+
+    return vetor_auxiliar;
+
+}
+
+Sorteados sorteaar_de_0_a_1()
 {
     random_device rd;   // non-deterministic generator
     mt19937 gen(rd());  // to seed mersenne twister.
@@ -26,8 +68,51 @@ int main()
                         // constant value to get repeatable
                         // results.
     uniform_real_distribution<> dist(0.0, 1.0);
-    for (int i = 0; i < 5; ++i) {
-        cout << dist(gen) << " "; // print the raw output of the generator.
+
+    Sorteados resultado = {dist(gen), dist(gen)};
+    return resultado;
+}
+
+void solucoes_sorteadas(vector<Solucao> solucoes){
+
+    vector<double> vetor_solucoes_inversas = vetor_de_probabilidade(solucoes);
+    Sorteados numeros_sorteados = sorteaar_de_0_a_1();
+    
+
+    int indice_primeiro, indice_segundo = 0;
+    int k = 1;
+    int tamanho_do_vetor = vetor_solucoes_inversas.size();
+    while (indice_primeiro < tamanho_do_vetor && k){
+
+        if (vetor_solucoes_inversas[indice_primeiro] >= numeros_sorteados.primeiro){
+            k = 0;
+        }
+        indice_primeiro ++;
     }
-    cout << endl;
+
+    indice_primeiro --;
+    k = 1;
+
+    while (indice_segundo < tamanho_do_vetor && k){
+
+        if (vetor_solucoes_inversas[indice_segundo] >= numeros_sorteados.segundo){
+            k = 0;
+        }
+        indice_segundo ++;
+    }
+
+    indice_segundo --;
+
+    if (indice_primeiro == indice_segundo){
+        if (indice_segundo > 0){
+            indice_segundo--;
+        }
+        else{
+            indice_segundo++;
+        }
+    }
+
+    solucoes_selecionadas.primeiro = indice_primeiro;
+    solucoes_selecionadas.segundo = indice_segundo;
+    
 }
