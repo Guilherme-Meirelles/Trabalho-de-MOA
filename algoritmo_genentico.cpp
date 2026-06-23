@@ -113,6 +113,71 @@ void solucoes_sorteadas(vector<double> vetor_solucoes_inversas, Sorteados numero
     
 }
 
+// Cruzamento por fusao (inspirado em Beasley & Chu) com reparo guloso.
+// As colunas presentes nos dois pais são herdadas direto (consenso); as presentes
+// em apenas um pai são herdadas com probabilidade que favorece o pai de menor custo.
+// Em seguida o filho é reparado gulosamente (cobrindo as linhas que sobraram) e tem
+// as colunas redundantes eliminadas, garantindo uma solução viável e enxuta.
+Solucao cruzamento(const Solucao& pai1, const Solucao& pai2){
+
+    int melhor_coluna;
+    float melhor_valor;
+    float valor_atual;
+
+    inicializar_solucao();
+
+    // Marca quais colunas cada pai possui: 1 = só pai1, 2 = só pai2, 3 = ambos.
+    vector<int> presenca(colunas, 0);
+    for (int i = 0; i < pai1.colunas.size(); i++){
+        presenca[pai1.colunas[i]] = presenca[pai1.colunas[i]] | 1;
+    }
+    for (int i = 0; i < pai2.colunas.size(); i++){
+        presenca[pai2.colunas[i]] = presenca[pai2.colunas[i]] | 2;
+    }
+
+    // Probabilidade de herdar uma coluna exclusiva de cada pai (favorece o de menor custo).
+    float soma_custos = pai1.custo + pai2.custo;
+    float prob_pai1 = (soma_custos > 0) ? pai2.custo / soma_custos : 0.5f;
+    float prob_pai2 = (soma_custos > 0) ? pai1.custo / soma_custos : 0.5f;
+
+    uniform_real_distribution<float> sorteio(0.0f, 1.0f);
+
+    for (int i = 0; i < colunas; i++){
+        if (presenca[i] == 3){
+            adicionar_coluna(i);                          // consenso dos pais: mantem sempre
+        } else if (presenca[i] == 1){
+            if (sorteio(gerador) < prob_pai1){
+                adicionar_coluna(i);
+            }
+        } else if (presenca[i] == 2){
+            if (sorteio(gerador) < prob_pai2){
+                adicionar_coluna(i);
+            }
+        }
+    }
+
+    // Reparo guloso: enquanto sobrar linha descoberta, adiciona a melhor coluna disponível.
+    while (linhas_descobertas > 0){
+        melhor_coluna = -1;
+        melhor_valor = 0;
+        for (int i = 0; i < colunas; i++){
+            if (ganho_coluna[i] > 0){
+                valor_atual = avaliar_coluna(i, func_global);
+                if (melhor_coluna == -1 || valor_atual < melhor_valor){
+                    melhor_coluna = i;
+                    melhor_valor = valor_atual;
+                }
+            }
+        }
+        adicionar_coluna(melhor_coluna);
+    }
+
+    // Remove colunas que ficaram redundantes após a fusão e o reparo.
+    eliminar_redundancia();
+
+    return salvar_solucao();
+}
+
 int main(){
 
     solucoes_algoritmo_de_construcao();
@@ -127,4 +192,21 @@ int main(){
     cout << numeros_sorteados.primeiro << " " << numeros_sorteados.segundo << endl;
     solucoes_sorteadas(vetor_solucoes_inversas, numeros_sorteados);
     cout << "Primeira solução escolhida:" << int(solucoes_selecionadas.primeiro) << " . Segunda solução escolhida:" << int(solucoes_selecionadas.segundo) << endl;
+
+    // Cruzamento dos dois pais selecionados.
+    int indice_pai1 = int(solucoes_selecionadas.primeiro);
+    int indice_pai2 = int(solucoes_selecionadas.segundo);
+    Solucao pai1 = populacao[indice_pai1];
+    Solucao pai2 = populacao[indice_pai2];
+    Solucao filho = cruzamento(pai1, pai2);
+
+    cout << endl << "Cruzamento:" << endl;
+    cout << "Pai 1 (indice " << indice_pai1 << "): custo = " << fixed << setprecision(2)
+         << pai1.custo << "   (" << pai1.colunas.size() << " col)" << endl;
+    cout << "Pai 2 (indice " << indice_pai2 << "): custo = " << pai2.custo
+         << "   (" << pai2.colunas.size() << " col)" << endl;
+    cout << "Filho gerado:        custo = " << filho.custo
+         << "   (" << filho.colunas.size() << " col)" << endl;
+
+    return 0;
 }
