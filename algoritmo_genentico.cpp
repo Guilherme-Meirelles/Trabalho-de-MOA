@@ -6,7 +6,7 @@ A partir disso somamos os resultados armazenados e fazemos 'x = 1 / soma dos val
 Depois multiplicamos todos os valores armazenados no vetor por x, desta forma temos a probabilidade de cada solução ser escolhida de um valor 0 a 1.
 Para facilitar na seleção podemos somar todos os elementos dester vetor pelo elemento da posição anteriro, neste sentido o último elemento do vetor será igual 1.
 
-Para selecionar probabilisticamente, podemos escolher sortear um número aleatório no intervalo de 0 a 1, 
+Para selecionar probabilisticamente, podemos escolher sortear um número aleatório no intervalo de 0 a 100, 
 e a partir disso selecionar a solução que está nesta faixa de valores armazenados.
 Se o valor sorteado está entre dois elementos do vetor, escolhe-se o elemento maior.
 
@@ -71,6 +71,18 @@ Sorteados sorteaar_de_0_a_100()
     return resultado;
 }
 
+int sorteaar_de_0_a_n(int n)
+{
+    random_device rd;   // non-deterministic generator
+    mt19937 gen(rd());  // to seed mersenne twister.
+                        // replace the call to rd() with a
+                        // constant value to get repeatable
+                        // results.
+    uniform_real_distribution<> dist(0, n);
+
+    int resultado = dist(gen);
+    return resultado;
+}
 void solucoes_sorteadas(vector<double> vetor_solucoes_inversas, Sorteados numeros_sorteados){
 
     
@@ -178,6 +190,53 @@ Solucao cruzamento(const Solucao& pai1, const Solucao& pai2){
     return salvar_solucao();
 }
 
+void adicionar_colunas_e_eliminar_mutacoes(vector<int> colunas_adicionadas){
+
+    vector<int> selecionadas;
+    int coluna_atual;
+
+    for (int i = 0; i < colunas; i++){
+        if (colunas_selecionadas[i]){
+            selecionadas.push_back(i);
+        }
+    }
+
+    sort(selecionadas.begin(), selecionadas.end(), comparar_por_peso_desc);
+
+    int tamanho_adicional = colunas_adicionadas.size();
+
+    for (int i = 0; i < tamanho_adicional; i++){
+        selecionadas.push_back(colunas_adicionadas[i]);
+        adicionar_coluna(colunas_adicionadas[i]);
+    }
+
+    for (int i = 0; i < selecionadas.size() - tamanho_adicional; i++){
+        coluna_atual = selecionadas[i];
+        if (coluna_redundante(coluna_atual)){
+            remover_coluna(coluna_atual);
+        }
+    }
+}
+
+
+Solucao mutacao(Solucao filho, int constante){
+
+    
+    
+    int tamanho_da_mutacao = sorteaar_de_0_a_n(int(filho.colunas.size()) / constante) + 1;
+    int  numero_sorteado;
+    vector<int> colunas_sorteadas;
+
+    for (int i = 0; i < tamanho_da_mutacao; i++){
+        numero_sorteado = sorteaar_de_0_a_n(colunas-1);
+        colunas_sorteadas.push_back(numero_sorteado);
+    }
+
+    
+    adicionar_colunas_e_eliminar_mutacoes(colunas_sorteadas);
+    return salvar_solucao();
+}
+
 int main(){
 
     solucoes_algoritmo_de_construcao();
@@ -199,12 +258,21 @@ int main(){
     Solucao pai1 = populacao[indice_pai1];
     Solucao pai2 = populacao[indice_pai2];
     Solucao filho = cruzamento(pai1, pai2);
+    int sorteio_de_mutacao = sorteaar_de_0_a_n(10);
+
+    if (sorteio_de_mutacao == 9){
+        filho = mutacao(filho, 4);
+    }
+    
 
     cout << endl << "Cruzamento:" << endl;
     cout << "Pai 1 (indice " << indice_pai1 << "): custo = " << fixed << setprecision(2)
          << pai1.custo << "   (" << pai1.colunas.size() << " col)" << endl;
     cout << "Pai 2 (indice " << indice_pai2 << "): custo = " << pai2.custo
          << "   (" << pai2.colunas.size() << " col)" << endl;
+    if (sorteio_de_mutacao == 9){
+        cout << "Mutação gerada no filho!" << endl;
+    }
     cout << "Filho gerado:        custo = " << filho.custo
          << "   (" << filho.colunas.size() << " col)" << endl;
 
