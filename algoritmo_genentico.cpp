@@ -58,29 +58,18 @@ vector<double> vetor_de_probabilidade(vector<Solucao> solucoes){
 
 }
 
-Sorteados sorteaar_de_0_a_100()
+Sorteados sortear_de_0_a_n_real(float n)
 {
-    random_device rd;   // non-deterministic generator
-    mt19937 gen(rd());  // to seed mersenne twister.
-                        // replace the call to rd() with a
-                        // constant value to get repeatable
-                        // results.
+    
     uniform_real_distribution<> dist(0.0, 100.0);
-
-    Sorteados resultado = {dist(gen), dist(gen)};
+    Sorteados resultado = {dist(gerador), dist(gerador)};
     return resultado;
 }
 
-int sorteaar_de_0_a_n(int n)
+int sortear_de_0_a_n(int n)
 {
-    random_device rd;   // non-deterministic generator
-    mt19937 gen(rd());  // to seed mersenne twister.
-                        // replace the call to rd() with a
-                        // constant value to get repeatable
-                        // results.
-    uniform_real_distribution<> dist(0, n);
-
-    int resultado = dist(gen);
+    uniform_int_distribution<> dist(0, n);
+    int resultado = dist(gerador);
     return resultado;
 }
 void solucoes_sorteadas(vector<double> vetor_solucoes_inversas, Sorteados numeros_sorteados){
@@ -223,12 +212,12 @@ Solucao mutacao(Solucao filho, int constante){
 
     
     
-    int tamanho_da_mutacao = sorteaar_de_0_a_n(int(filho.colunas.size()) / constante) + 1;
+    int tamanho_da_mutacao = sortear_de_0_a_n(int(filho.colunas.size()) / constante) + 1;
     int  numero_sorteado;
     vector<int> colunas_sorteadas;
 
     for (int i = 0; i < tamanho_da_mutacao; i++){
-        numero_sorteado = sorteaar_de_0_a_n(colunas-1);
+        numero_sorteado = sortear_de_0_a_n(colunas-1);
         colunas_sorteadas.push_back(numero_sorteado);
     }
 
@@ -239,9 +228,10 @@ Solucao mutacao(Solucao filho, int constante){
 
 int main(){
 
+    gerador.seed(SEMENTE);
     solucoes_algoritmo_de_construcao();
     vector<double> vetor_solucoes_inversas = vetor_de_probabilidade(populacao);
-    Sorteados numeros_sorteados = sorteaar_de_0_a_100();
+    Sorteados numeros_sorteados = sortear_de_0_a_n_real(100.0);
     /*
     for (int i = 0; i < vetor_solucoes_inversas.size(); i++){
         cout << vetor_solucoes_inversas[i] << endl;
@@ -258,10 +248,10 @@ int main(){
     Solucao pai1 = populacao[indice_pai1];
     Solucao pai2 = populacao[indice_pai2];
     Solucao filho = cruzamento(pai1, pai2);
-    int sorteio_de_mutacao = sorteaar_de_0_a_n(10);
-
+    int sorteio_de_mutacao = sortear_de_0_a_n(9);
+    
     if (sorteio_de_mutacao == 9){
-        filho = mutacao(filho, 4);
+        filho = mutacao(filho, 3);
     }
     
 
@@ -275,6 +265,5 @@ int main(){
     }
     cout << "Filho gerado:        custo = " << filho.custo
          << "   (" << filho.colunas.size() << " col)" << endl;
-
     return 0;
 }
