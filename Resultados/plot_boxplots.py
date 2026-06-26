@@ -39,7 +39,7 @@ fig, ax = plt.subplots(figsize=(11, 5))
 ax.boxplot(dados, labels=insts, showmeans=True)
 ax.axhline(0, color="red", ls="--", lw=1, label="melhor conhecido (GAP=0)")
 ax.set_ylabel("GAP (%)")
-ax.set_title("Distribuicao do GAP por instancia (E1, %d sementes, busca local A+B)" % len(dados[0]))
+ax.set_title("Distribuição do GAP por instância (E1, %d sementes, busca local A+B)" % len(dados[0]))
 ax.grid(axis="y", ls=":", alpha=0.6)
 ax.legend()
 plt.xticks(rotation=30)
@@ -49,7 +49,7 @@ plt.close()
 
 # ---------- E2: vizinhancas (modos 1=A, 2=B, 3=A+B) ----------
 e2 = filtra("E2")
-modo_nome = {1: "A (troca)", 2: "B (ruina)", 3: "A+B"}
+modo_nome = {1: "A (troca)", 2: "B (ruína)", 3: "A+B"}
 insts2 = [i for i in ORDEM if any(r["instancia"] == i for r in e2)]
 if e2:
     fig, ax = plt.subplots(figsize=(12, 5))
@@ -69,7 +69,7 @@ if e2:
         labels.append(i)
         pos += 1
     ax.set_ylabel("GAP (%)")
-    ax.set_title("Estudo de vizinhancas: A vs B vs A+B (E2)")
+    ax.set_title("Estudo de vizinhanças: A vs B vs A+B (E2)")
     ax.set_xticks(ticks)
     ax.set_xticklabels(labels, rotation=30)
     handles = [plt.Rectangle((0, 0), 1, 1, fc=cores[m]) for m in (1, 2, 3)]
