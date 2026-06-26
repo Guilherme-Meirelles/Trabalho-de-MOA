@@ -233,6 +233,10 @@ Solucao mutacao(Solucao filho, int constante){
 // Quantas rodadas de ruina+reconstrucao a busca local tenta por solucao (diversificacao).
 const int RODADAS_RUINA = 5;
 
+// Quais vizinhancas a busca local usa (bitmask, para o estudo de estrategias):
+// bit 0 = vizinhanca A (troca), bit 1 = vizinhanca B (ruina). 3 = ambas (padrao).
+int modo_busca_local = 3;
+
 // ----------------------------------------------------------------------------
 // Busca local
 // ----------------------------------------------------------------------------
@@ -375,21 +379,27 @@ void busca_local_ruina(int k){
 Solucao busca_local(Solucao solucao){
 
     carregar_solucao(solucao);
-    busca_local_troca();
+    if (modo_busca_local & 1){
+        busca_local_troca();
+    }
     Solucao melhor = salvar_solucao();
 
-    for (int r = 0; r < RODADAS_RUINA; r++){
-        carregar_solucao(melhor);
-        int teto = max(1, (int)melhor.colunas.size() / 3);
-        uniform_int_distribution<int> sorteio_k(1, teto);
-        int k = sorteio_k(gerador);
+    if (modo_busca_local & 2){
+        for (int r = 0; r < RODADAS_RUINA; r++){
+            carregar_solucao(melhor);
+            int teto = max(1, (int)melhor.colunas.size() / 3);
+            uniform_int_distribution<int> sorteio_k(1, teto);
+            int k = sorteio_k(gerador);
 
-        busca_local_ruina(k);
-        busca_local_troca();
+            busca_local_ruina(k);
+            if (modo_busca_local & 1){
+                busca_local_troca();
+            }
 
-        Solucao candidata = salvar_solucao();
-        if (candidata.custo < melhor.custo){
-            melhor = candidata;
+            Solucao candidata = salvar_solucao();
+            if (candidata.custo < melhor.custo){
+                melhor = candidata;
+            }
         }
     }
 
@@ -446,25 +456,32 @@ void substituir_na_populacao(const Solucao& filho){
     populacao[alvo] = filho;
 }
 
-// Prepara uma instancia qualquer (mesmos passos de solucoes_algoritmo_de_construcao,
-// mas recebendo o caminho do arquivo): le os dados, varre func/alpha para definir a
-// melhor configuracao e monta a populacao inicial. Nao altera o wrapper do parceiro.
-void preparar_instancia(const string& caminho){
+// Prepara uma instancia: le os dados e monta a populacao inicial.
+//   func_fixa <= 0  -> roda a varredura (calibracao) para escolher func_global/alpha_global;
+//   func_fixa  > 0  -> usa a config calibrada passada (func_fixa/alpha_fixa) e pula a varredura.
+// A varredura usa sempre a SEMENTE fixa (escolha estavel entre execucoes); a montagem da
+// populacao usa a 'semente' do experimento (varia entre execucoes para gerar os boxplots).
+void preparar_instancia(const string& caminho, unsigned int semente, int func_fixa, float alpha_fixa, int tamanho_populacao){
 
     construcao_da_tabela(caminho);
     montar_lista_de_adjacencia();
 
-    float alphas[] = {0.10f, 0.20f, 0.30f};
-    int repeticoes = 50;
-    for (int funcao = 1; funcao <= 7; funcao++){
-        for (int a = 0; a < 3; a++){
-            gerador.seed(SEMENTE);
-            experimento_randomizado(funcao, alphas[a], repeticoes);
+    if (func_fixa <= 0){
+        float alphas[] = {0.10f, 0.20f, 0.30f};
+        int repeticoes = 50;
+        for (int funcao = 1; funcao <= 7; funcao++){
+            for (int a = 0; a < 3; a++){
+                gerador.seed(SEMENTE);
+                experimento_randomizado(funcao, alphas[a], repeticoes);
+            }
         }
+    } else {
+        func_global = func_fixa;
+        alpha_global = alpha_fixa;
     }
 
-    gerador.seed(SEMENTE);
-    construir_populacao(func_global, alpha_global, 50, 1000);
+    gerador.seed(semente);
+    construir_populacao(func_global, alpha_global, tamanho_populacao, 1000);
 }
 
 // Validador independente: recalcula cobertura e custo do zero (sem usar o estado
@@ -494,17 +511,26 @@ Validacao validar_solucao(const Solucao& solucao){
 
 int main(int argc, char** argv){
 
-    string caminho = (argc > 1) ? argv[1] : "./Tabela/Teste_01.dat";
+    // Argumentos (todos opcionais, em ordem). Sem argumentos, comporta-se como antes.
+    //   1 caminho da instancia   2 tempo limite (ms)   3 semente
+    //   4 funcao gulosa fixa (<=0 = calibrar via varredura)   5 alpha fixo
+    //   6 tamanho da populacao   7 modo de busca local (1=A, 2=B, 3=A+B)
+    string       caminho           = (argc > 1) ? argv[1]              : "./Tabela/Teste_01.dat";
+    const long   TEMPO_LIMITE_MS   = (argc > 2) ? atol(argv[2])        : 10000;
+    unsigned int semente           = (argc > 3) ? (unsigned)atol(argv[3]) : SEMENTE;
+    int          func_fixa         = (argc > 4) ? atoi(argv[4])        : 0;       // 0 = varredura (calibracao)
+    float        alpha_fixa        = (argc > 5) ? (float)atof(argv[5]) : 0.10f;
+    int          tamanho_populacao = (argc > 6) ? atoi(argv[6])        : 50;
+    modo_busca_local               = (argc > 7) ? atoi(argv[7])        : 3;
 
-    // Parametros do laco geracional (calibraveis para os experimentos do relatorio).
+    // Parametros do laco geracional.
     const int   MAX_ITER        = 50000;   // teto de filhos gerados (rede de seguranca)
     const int   MAX_ESTAGNACAO  = 5000;    // para apos N iteracoes sem melhorar o incumbente
-    const long  TEMPO_LIMITE_MS = (argc > 2) ? atol(argv[2]) : 10000;   // tempo limite (ms); pode vir por argumento
 
     auto inicio = chrono::steady_clock::now();
 
     // Construcao da populacao inicial (define tambem func_global / alpha_global).
-    preparar_instancia(caminho);
+    preparar_instancia(caminho, semente, func_fixa, alpha_fixa, tamanho_populacao);
 
     // Memetico: aplica busca local em cada individuo da populacao inicial.
     Solucao melhor = populacao[indice_melhor_populacao()];
@@ -571,6 +597,13 @@ int main(int argc, char** argv){
     cout << "Validacao: " << (v.viavel ? "VIAVEL" : "INVIAVEL")
          << "   linhas cobertas = " << v.linhas_cobertas << "/" << linhas
          << "   custo recalculado = " << v.custo << endl;
+
+    // Linha compacta para coleta automatica (scripts de experimento).
+    // Campos: instancia;custo;n_col;iteracoes;tempo_ms;limite_ms;viavel;func;alpha;semente;modo_bl;pop
+    cout << "RESULTADO;" << caminho << ";" << melhor.custo << ";" << melhor.colunas.size()
+         << ";" << iteracoes << ";" << tempo_ms << ";" << TEMPO_LIMITE_MS
+         << ";" << (v.viavel ? 1 : 0) << ";" << func_global << ";" << alpha_global
+         << ";" << semente << ";" << modo_busca_local << ";" << tamanho_populacao << endl;
 
     return 0;
 }

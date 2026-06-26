@@ -77,3 +77,70 @@ Compilado com `g++ -std=c++17 -O2`. Testes a 10 s, Wren a 60 s. Todas VIÁVEIS (
 | 120 s | 59091 | +1,60 | 12023 |
 
 Nota: 120 s deu pior que 60 s por variância (sem semente fixa), não por o tempo prejudicar.
+Após adotar o `gerador` semeado (revisão do parceiro), as execuções passaram a ser
+reprodutíveis; a variação entre execuções agora vem da **semente** passada por argumento.
+
+---
+
+## Ferramentas de experimento
+
+O executável aceita argumentos posicionais (todos opcionais; sem argumentos, comporta-se
+como antes):
+
+```
+scp_run.exe <instancia> <tempo_ms> <semente> <func> <alpha> <pop> <modo_bl>
+```
+- `func` = 0 → roda a varredura (calibração) e escolhe func/alpha; `func` > 0 → usa a
+  config calibrada passada e **pula a varredura** (muito mais rápido nas instâncias grandes).
+- `modo_bl`: 1 = só vizinhança A (troca), 2 = só B (ruína), 3 = A+B.
+- Cada execução imprime uma linha `RESULTADO;...` para coleta automática.
+
+**Config calibrada por instância** (vencedores da varredura, determinísticos):
+
+| Instância | func | alpha |   | Instância | func | alpha |
+|---|---|---|---|---|---|---|
+| Teste_01..05 | 3 | 0,10 |   | Wren_02 | 1 | 0,20 |
+| Wren_01 | 2 | 0,30 |   | Wren_03 | 1 | 0,10 |
+|  |  |  |   | Wren_04 | 3 | 0,10 |
+
+**Scripts:**
+- `Resultados/run_experimentos.ps1` — campanha completa, gera `experimentos.csv`:
+  - **E1** boxplots de GAP (10 sementes × 9 instâncias, config calibrada, busca local A+B);
+  - **E2** estudo de vizinhanças (modos A, B, A+B nas instâncias rápidas);
+  - **E3** estudo de tamanho de população (20/50/100).
+- `Resultados/plot_boxplots.py` — lê o CSV e gera `graficos/*.png` + `resumo_experimentos.md`.
+
+Reproduzir:
+```
+g++ -std=c++17 -O2 algoritmo_genentico.cpp -o scp_run.exe
+powershell -ExecutionPolicy Bypass -File Resultados\run_experimentos.ps1
+python Resultados\plot_boxplots.py
+```
+
+## Resultados da campanha (E1/E2/E3)
+
+Tabelas completas em `resumo_experimentos.md`; gráficos em `graficos/boxplot_gap.png`
+(E1) e `graficos/vizinhancas.png` (E2). Campanha de **234 execuções, 0 inviáveis**
+(validador independente) — o reparo do bug de cobertura se mantém em todas as configurações.
+
+### Principais achados
+
+**E1 — qualidade e GAP (10 sementes, config calibrada, A+B):**
+- Superam ou empatam o melhor conhecido: **Teste_03, Teste_04** (sempre abaixo, desvio ~0),
+  **Teste_01** e **Wren_01** (atingem o ótimo na melhor semente), **Teste_05** e **Wren_04**
+  (melhor semente abaixo da referência).
+- Instâncias difíceis: **Wren_02** (melhor +2,77%) e **Wren_03** (melhor +5,19%) — empacam
+  em ótimo local mesmo com o tempo dado.
+- Variância (importância dos boxplots): Teste_03/04 quase determinísticos (desvio ~0);
+  Teste_01/02 e Wren_02/03 com dispersão grande → uma única execução engana.
+
+**E2 — estudo de vizinhanças (achado central):**
+- A vizinhança **B (ruína-reconstrução guiada por desperdício — nossa contribuição original)
+  é a mais forte** isoladamente.
+- **A+B nem sempre supera B sozinha** — em Teste_02 e Teste_05 chega a piorar.
+- **A (troca) sozinha é a mais fraca.** Conclusão para o relatório: o motor de melhoria é a
+  ruína-reconstrução; a troca é complemento de intensificação, não a peça principal.
+
+**E3 — tamanho da população:**
+- Wren_01 melhora com população maior (GAP médio 3,64% → 2,43% de pop 20 → 100).
+- Teste_02 tem efeito misto (ruído domina nessa instância pequena).
