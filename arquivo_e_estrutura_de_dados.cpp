@@ -458,7 +458,7 @@ int main(){
 }
 */
 
-// Função criada para executar com menos comentários o algoritmo de construção
+// Função criada para executar o algoritmo de construção
 int solucoes_algoritmo_de_construcao(){
 
     construcao_da_tabela("./Tabela/Teste_01.dat");

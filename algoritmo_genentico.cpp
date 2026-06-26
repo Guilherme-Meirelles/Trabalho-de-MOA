@@ -15,6 +15,7 @@ Se o valor sorteado está entre dois elementos do vetor, escolhe-se o elemento m
 // Função para sortear um número
 #include <random>
 #include <iostream>
+#include <chrono>
 #include "arquivo_e_estrutura_de_dados.cpp"
 
 using namespace std;
@@ -58,29 +59,18 @@ vector<double> vetor_de_probabilidade(vector<Solucao> solucoes){
 
 }
 
-Sorteados sorteaar_de_0_a_100()
+Sorteados sortear_de_0_a_n_real(float n)
 {
-    random_device rd;   // non-deterministic generator
-    mt19937 gen(rd());  // to seed mersenne twister.
-                        // replace the call to rd() with a
-                        // constant value to get repeatable
-                        // results.
-    uniform_real_distribution<> dist(0.0, 100.0);
 
-    Sorteados resultado = {dist(gen), dist(gen)};
+    uniform_real_distribution<> dist(0.0, 100.0);
+    Sorteados resultado = {dist(gerador), dist(gerador)};
     return resultado;
 }
 
-int sorteaar_de_0_a_n(int n)
+int sortear_de_0_a_n(int n)
 {
-    random_device rd;   // non-deterministic generator
-    mt19937 gen(rd());  // to seed mersenne twister.
-                        // replace the call to rd() with a
-                        // constant value to get repeatable
-                        // results.
-    uniform_real_distribution<> dist(0, n);
-
-    int resultado = dist(gen);
+    uniform_int_distribution<> dist(0, n);
+    int resultado = dist(gerador);
     return resultado;
 }
 void solucoes_sorteadas(vector<double> vetor_solucoes_inversas, Sorteados numeros_sorteados){
@@ -203,14 +193,17 @@ void adicionar_colunas_e_eliminar_mutacoes(vector<int> colunas_adicionadas){
 
     sort(selecionadas.begin(), selecionadas.end(), comparar_por_peso_desc);
 
+    int n_original = selecionadas.size();   // so as colunas ja existentes entram na checagem de redundancia
+
     int tamanho_adicional = colunas_adicionadas.size();
 
     for (int i = 0; i < tamanho_adicional; i++){
-        selecionadas.push_back(colunas_adicionadas[i]);
-        adicionar_coluna(colunas_adicionadas[i]);
+        if (!colunas_selecionadas[colunas_adicionadas[i]]){   // evita readicionar coluna ja presente (corromperia cobertura/custo)
+            adicionar_coluna(colunas_adicionadas[i]);
+        }
     }
 
-    for (int i = 0; i < selecionadas.size() - tamanho_adicional; i++){
+    for (int i = 0; i < n_original; i++){
         coluna_atual = selecionadas[i];
         if (coluna_redundante(coluna_atual)){
             remover_coluna(coluna_atual);
@@ -223,12 +216,12 @@ Solucao mutacao(Solucao filho, int constante){
 
     
     
-    int tamanho_da_mutacao = sorteaar_de_0_a_n(int(filho.colunas.size()) / constante) + 1;
+    int tamanho_da_mutacao = sortear_de_0_a_n(int(filho.colunas.size()) / constante) + 1;
     int  numero_sorteado;
     vector<int> colunas_sorteadas;
 
     for (int i = 0; i < tamanho_da_mutacao; i++){
-        numero_sorteado = sorteaar_de_0_a_n(colunas-1);
+        numero_sorteado = sortear_de_0_a_n(colunas-1);
         colunas_sorteadas.push_back(numero_sorteado);
     }
 
@@ -237,44 +230,347 @@ Solucao mutacao(Solucao filho, int constante){
     return salvar_solucao();
 }
 
-int main(){
+// Quantas rodadas de ruina+reconstrucao a busca local tenta por solucao (diversificacao).
+const int RODADAS_RUINA = 5;
 
-    solucoes_algoritmo_de_construcao();
-    vector<double> vetor_solucoes_inversas = vetor_de_probabilidade(populacao);
-    Sorteados numeros_sorteados = sorteaar_de_0_a_100();
-    /*
-    for (int i = 0; i < vetor_solucoes_inversas.size(); i++){
-        cout << vetor_solucoes_inversas[i] << endl;
+// ----------------------------------------------------------------------------
+// Busca local
+// ----------------------------------------------------------------------------
+
+// Vizinhanca A - troca (1,1) guiada por cobertura.
+// Para cada coluna escolhida c, olha suas linhas exclusivas (linhas onde cobertura == 1,
+// ou seja, so c as cobre). Se nao houver exclusivas, c e redundante e sai. Caso contrario,
+// procura UMA coluna mais barata que cubra todas as exclusivas de c e troca c por ela.
+// Aproveita o estado incremental: detectar exclusivas e O(linhas de c). Repete enquanto melhora.
+void busca_local_troca(){
+
+    vector<char> eh_exclusiva(linhas, 0);
+    vector<int> escolhidas;
+    vector<int> exclusivas;
+    bool melhorou = true;
+
+    while (melhorou){
+        melhorou = false;
+
+        escolhidas.clear();
+        for (int i = 0; i < colunas; i++){
+            if (colunas_selecionadas[i]){
+                escolhidas.push_back(i);
+            }
+        }
+
+        for (int idx = 0; idx < (int)escolhidas.size(); idx++){
+            int c = escolhidas[idx];
+            if (!colunas_selecionadas[c]) continue;   // pode ter saido numa troca anterior
+
+            // Linhas exclusivas de c (so c as cobre).
+            exclusivas.clear();
+            for (int j = 0; j < (int)tabela_de_dados[c].linhas.size(); j++){
+                int l = tabela_de_dados[c].linhas[j];
+                if (cobertura_linha[l] == 1){
+                    exclusivas.push_back(l);
+                }
+            }
+
+            if (exclusivas.empty()){          // c e redundante: remover ja reduz o custo
+                remover_coluna(c);
+                melhorou = true;
+                continue;
+            }
+
+            // Pivo: a linha exclusiva com menos colunas candidatas (reduz o trabalho da busca).
+            int pivo = exclusivas[0];
+            for (int e = 1; e < (int)exclusivas.size(); e++){
+                if (lista_de_adjacencia_linhas[exclusivas[e]].size() < lista_de_adjacencia_linhas[pivo].size()){
+                    pivo = exclusivas[e];
+                }
+            }
+
+            for (int e = 0; e < (int)exclusivas.size(); e++){
+                eh_exclusiva[exclusivas[e]] = 1;
+            }
+
+            // Procura a coluna mais barata (e mais barata que c) que cobre todas as exclusivas.
+            int melhor_c2 = -1;
+            float melhor_peso = tabela_de_dados[c].peso;
+            for (int t = 0; t < (int)lista_de_adjacencia_linhas[pivo].size(); t++){
+                int c2 = lista_de_adjacencia_linhas[pivo][t];
+                if (c2 == c || colunas_selecionadas[c2]) continue;
+                if (tabela_de_dados[c2].peso >= melhor_peso) continue;
+
+                int cobre = 0;
+                for (int j = 0; j < (int)tabela_de_dados[c2].linhas.size(); j++){
+                    if (eh_exclusiva[tabela_de_dados[c2].linhas[j]]) cobre++;
+                }
+                if (cobre == (int)exclusivas.size()){   // cobre todas as exclusivas
+                    melhor_c2 = c2;
+                    melhor_peso = tabela_de_dados[c2].peso;
+                }
+            }
+
+            for (int e = 0; e < (int)exclusivas.size(); e++){
+                eh_exclusiva[exclusivas[e]] = 0;
+            }
+
+            if (melhor_c2 != -1){
+                remover_coluna(c);
+                adicionar_coluna(melhor_c2);
+                melhorou = true;
+            }
+        }
     }
-    */
-    cout << endl <<"Numeros sorteados: ";
-    cout << numeros_sorteados.primeiro << " " << numeros_sorteados.segundo << endl;
-    solucoes_sorteadas(vetor_solucoes_inversas, numeros_sorteados);
-    cout << "Primeira solução escolhida:" << int(solucoes_selecionadas.primeiro) << " . Segunda solução escolhida:" << int(solucoes_selecionadas.segundo) << endl;
+}
 
-    // Cruzamento dos dois pais selecionados.
-    int indice_pai1 = int(solucoes_selecionadas.primeiro);
-    int indice_pai2 = int(solucoes_selecionadas.segundo);
-    Solucao pai1 = populacao[indice_pai1];
-    Solucao pai2 = populacao[indice_pai2];
-    Solucao filho = cruzamento(pai1, pai2);
-    int sorteio_de_mutacao = sorteaar_de_0_a_n(10);
+// Vizinhanca B - ruina e reconstrucao guiada por desperdicio.
+// Desperdicio(c) = peso(c) * media( cobertura_linha - 1 ) sobre as linhas de c: prioriza
+// colunas CARAS cujas linhas ja estao redundantemente cobertas. Remove as k de maior
+// desperdicio, recobre gulosamente as linhas que ficaram descobertas (mesma logica do
+// reparo do cruzamento) e elimina redundancia. Opera sobre o estado de trabalho atual.
+void busca_local_ruina(int k){
 
-    if (sorteio_de_mutacao == 9){
-        filho = mutacao(filho, 4);
+    vector<pair<float,int>> desperdicio;   // (score, coluna)
+    for (int i = 0; i < colunas; i++){
+        if (!colunas_selecionadas[i]) continue;
+        int n = tabela_de_dados[i].linhas.size();
+        float soma = 0;
+        for (int j = 0; j < n; j++){
+            soma += (cobertura_linha[tabela_de_dados[i].linhas[j]] - 1);
+        }
+        float media = (n > 0) ? soma / n : 0.0f;
+        desperdicio.push_back({ tabela_de_dados[i].peso * media, i });
     }
-    
 
-    cout << endl << "Cruzamento:" << endl;
-    cout << "Pai 1 (indice " << indice_pai1 << "): custo = " << fixed << setprecision(2)
-         << pai1.custo << "   (" << pai1.colunas.size() << " col)" << endl;
-    cout << "Pai 2 (indice " << indice_pai2 << "): custo = " << pai2.custo
-         << "   (" << pai2.colunas.size() << " col)" << endl;
-    if (sorteio_de_mutacao == 9){
-        cout << "Mutação gerada no filho!" << endl;
+    sort(desperdicio.begin(), desperdicio.end(),
+         [](const pair<float,int>& a, const pair<float,int>& b){ return a.first > b.first; });
+
+    int remover = min(k, (int)desperdicio.size());
+    for (int i = 0; i < remover; i++){
+        remover_coluna(desperdicio[i].second);
     }
-    cout << "Filho gerado:        custo = " << filho.custo
-         << "   (" << filho.colunas.size() << " col)" << endl;
+
+    // Reconstrucao gulosa: cobre as linhas descobertas com a melhor coluna disponivel.
+    int melhor_coluna;
+    float melhor_valor;
+    float valor_atual;
+    while (linhas_descobertas > 0){
+        melhor_coluna = -1;
+        melhor_valor = 0;
+        for (int i = 0; i < colunas; i++){
+            if (ganho_coluna[i] > 0){
+                valor_atual = avaliar_coluna(i, func_global);
+                if (melhor_coluna == -1 || valor_atual < melhor_valor){
+                    melhor_coluna = i;
+                    melhor_valor = valor_atual;
+                }
+            }
+        }
+        adicionar_coluna(melhor_coluna);
+    }
+
+    eliminar_redundancia();
+}
+
+// Busca local completa de uma solucao: intensifica com a troca (A) e depois alterna
+// algumas rodadas de ruina+reconstrucao (B) com nova troca, guardando sempre a melhor.
+Solucao busca_local(Solucao solucao){
+
+    carregar_solucao(solucao);
+    busca_local_troca();
+    Solucao melhor = salvar_solucao();
+
+    for (int r = 0; r < RODADAS_RUINA; r++){
+        carregar_solucao(melhor);
+        int teto = max(1, (int)melhor.colunas.size() / 3);
+        uniform_int_distribution<int> sorteio_k(1, teto);
+        int k = sorteio_k(gerador);
+
+        busca_local_ruina(k);
+        busca_local_troca();
+
+        Solucao candidata = salvar_solucao();
+        if (candidata.custo < melhor.custo){
+            melhor = candidata;
+        }
+    }
+
+    carregar_solucao(melhor);
+    return melhor;
+}
+
+// ----------------------------------------------------------------------------
+// Apoio ao laco geracional (steady-state)
+// ----------------------------------------------------------------------------
+
+// Indice da melhor (menor custo) solucao da populacao.
+int indice_melhor_populacao(){
+    int melhor = 0;
+    for (int i = 1; i < (int)populacao.size(); i++){
+        if (populacao[i].custo < populacao[melhor].custo){
+            melhor = i;
+        }
+    }
+    return melhor;
+}
+
+// Diz se uma solucao identica (mesmo conjunto de colunas) ja esta na populacao.
+bool existe_na_populacao(const Solucao& solucao){
+    for (int i = 0; i < (int)populacao.size(); i++){
+        if (populacao[i].colunas == solucao.colunas){
+            return true;
+        }
+    }
+    return false;
+}
+
+// Substitui um individuo aleatorio da metade pior (custo >= mediana) pelo filho.
+// Como o melhor fica abaixo da mediana, ele nunca e substituido (elitismo implicito)
+// e a diversidade da populacao e preservada.
+void substituir_na_populacao(const Solucao& filho){
+
+    vector<float> custos;
+    for (int i = 0; i < (int)populacao.size(); i++){
+        custos.push_back(populacao[i].custo);
+    }
+    sort(custos.begin(), custos.end());
+    float mediana = custos[custos.size() / 2];
+
+    vector<int> piores;
+    for (int i = 0; i < (int)populacao.size(); i++){
+        if (populacao[i].custo >= mediana){
+            piores.push_back(i);
+        }
+    }
+
+    uniform_int_distribution<int> sorteio(0, (int)piores.size() - 1);
+    int alvo = piores[sorteio(gerador)];
+    populacao[alvo] = filho;
+}
+
+// Prepara uma instancia qualquer (mesmos passos de solucoes_algoritmo_de_construcao,
+// mas recebendo o caminho do arquivo): le os dados, varre func/alpha para definir a
+// melhor configuracao e monta a populacao inicial. Nao altera o wrapper do parceiro.
+void preparar_instancia(const string& caminho){
+
+    construcao_da_tabela(caminho);
+    montar_lista_de_adjacencia();
+
+    float alphas[] = {0.10f, 0.20f, 0.30f};
+    int repeticoes = 50;
+    for (int funcao = 1; funcao <= 7; funcao++){
+        for (int a = 0; a < 3; a++){
+            gerador.seed(SEMENTE);
+            experimento_randomizado(funcao, alphas[a], repeticoes);
+        }
+    }
+
+    gerador.seed(SEMENTE);
+    construir_populacao(func_global, alpha_global, 50, 1000);
+}
+
+// Validador independente: recalcula cobertura e custo do zero (sem usar o estado
+// incremental do solver), garantindo que a solucao reportada e viavel e tem o custo certo.
+struct Validacao { bool viavel; int linhas_cobertas; float custo; };
+
+Validacao validar_solucao(const Solucao& solucao){
+
+    vector<int> cobertura(linhas, 0);
+    float custo = 0;
+
+    for (int i = 0; i < (int)solucao.colunas.size(); i++){
+        int c = solucao.colunas[i];
+        custo += tabela_de_dados[c].peso;
+        for (int j = 0; j < (int)tabela_de_dados[c].linhas.size(); j++){
+            cobertura[tabela_de_dados[c].linhas[j]]++;
+        }
+    }
+
+    int cobertas = 0;
+    for (int l = 0; l < linhas; l++){
+        if (cobertura[l] > 0) cobertas++;
+    }
+
+    return { cobertas == linhas, cobertas, custo };
+}
+
+int main(int argc, char** argv){
+
+    string caminho = (argc > 1) ? argv[1] : "./Tabela/Teste_01.dat";
+
+    // Parametros do laco geracional (calibraveis para os experimentos do relatorio).
+    const int   MAX_ITER        = 50000;   // teto de filhos gerados (rede de seguranca)
+    const int   MAX_ESTAGNACAO  = 5000;    // para apos N iteracoes sem melhorar o incumbente
+    const long  TEMPO_LIMITE_MS = (argc > 2) ? atol(argv[2]) : 10000;   // tempo limite (ms); pode vir por argumento
+
+    auto inicio = chrono::steady_clock::now();
+
+    // Construcao da populacao inicial (define tambem func_global / alpha_global).
+    preparar_instancia(caminho);
+
+    // Memetico: aplica busca local em cada individuo da populacao inicial.
+    Solucao melhor = populacao[indice_melhor_populacao()];
+    float custo_inicial = melhor.custo;
+    for (int i = 0; i < (int)populacao.size(); i++){
+        populacao[i] = busca_local(populacao[i]);
+        if (populacao[i].custo < melhor.custo){
+            melhor = populacao[i];
+        }
+    }
+
+    // Laco evolutivo steady-state: 1 filho por iteracao, substituindo a metade pior.
+    int iteracoes = 0;
+    int sem_melhora = 0;
+
+    while (iteracoes < MAX_ITER
+           && sem_melhora < MAX_ESTAGNACAO
+           && chrono::duration_cast<chrono::milliseconds>(chrono::steady_clock::now() - inicio).count() < TEMPO_LIMITE_MS){
+
+        // Selecao por roleta (favorece menor custo) - funcoes ja existentes.
+        vector<double> roleta = vetor_de_probabilidade(populacao);
+        Sorteados numeros = sortear_de_0_a_n_real(100.0);
+        solucoes_sorteadas(roleta, numeros);
+        Solucao pai1 = populacao[int(solucoes_selecionadas.primeiro)];
+        Solucao pai2 = populacao[int(solucoes_selecionadas.segundo)];
+
+        // Cruzamento -> mutacao (ocasional) -> busca local.
+        Solucao filho = cruzamento(pai1, pai2);
+        if (sortear_de_0_a_n(9) == 9){
+            filho = mutacao(filho, 3);
+        }
+        filho = busca_local(filho);
+
+        // Insercao: so entra se nao for duplicata; substitui um da metade pior.
+        if (!existe_na_populacao(filho)){
+            substituir_na_populacao(filho);
+        }
+
+        if (filho.custo < melhor.custo){
+            melhor = filho;
+            sem_melhora = 0;
+        } else {
+            sem_melhora = sem_melhora + 1;
+        }
+        iteracoes = iteracoes + 1;
+    }
+
+    long tempo_ms = chrono::duration_cast<chrono::milliseconds>(chrono::steady_clock::now() - inicio).count();
+
+    Validacao v = validar_solucao(melhor);
+
+    cout << fixed << setprecision(2);
+    cout << endl << "==== Algoritmo Genetico + Busca Local ====" << endl;
+    cout << "Instancia: " << caminho << endl;
+    cout << "Linhas: " << linhas << "   Colunas: " << colunas << endl;
+    cout << "Construcao escolhida: funcao " << func_global
+         << "   alpha " << alpha_global << endl;
+    cout << "Melhor custo inicial (pos-construcao): " << custo_inicial << endl;
+    cout << "Melhor custo final:                    " << melhor.custo
+         << "   (" << melhor.colunas.size() << " col)" << endl;
+    cout << "Iteracoes: " << iteracoes
+         << "   Tempo: " << tempo_ms << " ms"
+         << "   (limite " << TEMPO_LIMITE_MS << " ms)" << endl;
+    cout << "Validacao: " << (v.viavel ? "VIAVEL" : "INVIAVEL")
+         << "   linhas cobertas = " << v.linhas_cobertas << "/" << linhas
+         << "   custo recalculado = " << v.custo << endl;
 
     return 0;
 }

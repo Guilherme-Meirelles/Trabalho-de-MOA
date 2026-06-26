@@ -1,0 +1,13 @@
+data,instancia,linhas,colunas,melhor_conhecido,custo,gap_pct,n_colunas,iteracoes,tempo_ms,limite_ms,viavel,func_global,alpha_global,aleatoriedade,obs
+2026-06-26,Teste_01,50,300,557.44,557.44,0.00,9,13445,1608,10000,sim,3,0.10,random_device,atinge o otimo
+2026-06-26,Teste_02,50,500,537.89,577.25,7.32,10,5608,1300,10000,sim,3,0.10,random_device,ponto fraco
+2026-06-26,Teste_03,50,700,517.58,515.30,-0.44,9,5000,1454,10000,sim,3,0.10,random_device,supera referencia
+2026-06-26,Teste_04,100,500,1162.8,1157.08,-0.49,19,7738,2224,10000,sim,3,0.10,random_device,supera referencia
+2026-06-26,Teste_05,100,700,1020.12,1018.67,-0.14,19,16666,9476,10000,sim,3,0.10,random_device,supera referencia
+2026-06-26,Wren_01,200,539,7856,7873,0.22,15,9558,2523,60000,sim,2,0.30,random_device,quase otimo
+2026-06-26,Wren_02,222,5522,13908,14979,7.70,37,6156,25008,60000,sim,1,0.20,random_device,parou por estagnacao
+2026-06-26,Wren_03,219,4990,13780,14844,7.72,35,13695,39356,60000,sim,1,0.10,random_device,parou por estagnacao
+2026-06-26,Wren_04,798,4569,58161,58939,1.34,122,4412,60005,60000,sim,3,0.10,random_device,usa todo o tempo
+2026-06-26,Wren_04,798,4569,58161,63112,8.51,130,0,10936,10000,sim,3,0.10,random_device,sensibilidade-tempo: construcao consumiu orcamento
+2026-06-26,Wren_04,798,4569,58161,58393,0.40,121,6046,60002,60000,sim,3,0.10,random_device,sensibilidade-tempo
+2026-06-26,Wren_04,798,4569,58161,59091,1.60,122,12023,120002,120000,sim,3,0.10,random_device,sensibilidade-tempo
