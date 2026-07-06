@@ -40,7 +40,10 @@ a referência do professor.
 - Seleção por roleta (favorece menor custo); cruzamento por fusão (Beasley & Chu) + reparo guloso.
 - Mutação ~10% (dispara quando sorteio 0..10 == 9), constante 4.
 - Substituição de um indivíduo da metade pior + rejeição de duplicatas (elitismo implícito).
-- Parada: MAX_ITER = 50000, MAX_ESTAGNACAO = 5000, TEMPO_LIMITE configurável (argv[2], ms).
+- **Restart parcial ao estagnar:** após `MAX_ESTAGNACAO = 5000` iterações sem melhorar, o laço
+  não encerra — preserva o elite e reconstrói o resto da população (GRASP + busca local),
+  escapando do ótimo local e usando todo o orçamento de tempo.
+- Parada: TEMPO_LIMITE configurável (argv[2], ms) e MAX_ITER = 50000 (rede de segurança).
 
 **Aleatoriedade:** a construção usa semente fixa, mas seleção e mutação usam `random_device`
 (NÃO reprodutível) — por isso execuções únicas variam. Para boxplots, rodar N sementes.
@@ -82,6 +85,37 @@ reprodutíveis; a variação entre execuções agora vem da **semente** passada 
 
 ---
 
+## Melhoria: restart parcial ao estagnar (2026-07-04)
+
+**Diagnóstico.** As observações da baseline mostraram que Wren_02/Wren_03 **paravam antes do
+limite de tempo** por estagnação (`MAX_ESTAGNACAO`), travando em ótimo local e desperdiçando
+~⅔ do orçamento. **Correção mínima** (3 linhas no `main`): ao estagnar, em vez de encerrar, o
+laço faz um **restart parcial** — preserva o incumbente (elite) e reconstrói o resto da
+população (GRASP + busca local), continuando até o tempo acabar.
+
+**Evidência A/B** (5 sementes por instância, 30 s, config calibrada, A+B, **na tomada / clock
+cheio**; dados em `ab_restart.csv`). A coluna de iterações explica o mecanismo: a versão antiga
+para por estagnação com ~11–15 mil iterações, sobrando orçamento; o restart segue até o tempo
+acabar (~38–48 mil), e é desse "mais tempo bem usado" que vem o ganho.
+
+| Instância | Versão | Melhor GAP % | Média GAP % | Iter. média | Viável |
+|---|---|---|---|---|---|
+| Wren_02 | antes  | +2,77 | +5,14 | 11 558 | 5/5 |
+| Wren_02 | **restart** | +2,77 | **+3,49** | 38 634 | 5/5 |
+| Wren_03 | antes  | +5,19 | +7,87 | 15 007 | 5/5 |
+| Wren_03 | **restart** | **+2,61** | **+4,17** | 48 531 | 5/5 |
+
+- **Wren_03** (pior caso do trabalho): melhor GAP caiu de +5,19% → **+2,61%** (mais que a metade);
+  média +7,87% → +4,17%.
+- **Wren_02:** melhor empatou, média caiu ~1,65 pp (mais consistente).
+- **Sem regressão** nas instâncias já boas — e o **Teste_02** (ponto fraco entre as pequenas,
+  ia a +7,32% em algumas sementes) passou a **cravar o ótimo** (0,00%). Todas as execuções VIÁVEIS.
+
+Com a mudança, o critério de parada principal passou a ser o **tempo limite**; a estagnação virou
+gatilho de diversificação. A campanha E1/E2/E3 abaixo foi **regerada** com essa versão.
+
+---
+
 ## Ferramentas de experimento
 
 O executável aceita argumentos posicionais (todos opcionais; sem argumentos, comporta-se
@@ -112,7 +146,7 @@ scp_run.exe <instancia> <tempo_ms> <semente> <func> <alpha> <pop> <modo_bl>
 
 Reproduzir:
 ```
-g++ -std=c++17 -O2 algoritmo_genentico.cpp -o scp_run.exe
+g++ -std=c++17 -O2 algoritmo_genetico.cpp -o scp_run.exe
 powershell -ExecutionPolicy Bypass -File Resultados\run_experimentos.ps1
 python Resultados\plot_boxplots.py
 ```
@@ -123,24 +157,32 @@ Tabelas completas em `resumo_experimentos.md`; gráficos em `graficos/boxplot_ga
 (E1) e `graficos/vizinhancas.png` (E2). Campanha de **234 execuções, 0 inviáveis**
 (validador independente) — o reparo do bug de cobertura se mantém em todas as configurações.
 
+> Campanha regerada **na tomada** (clock cheio). A 1ª campanha rodou na bateria e sofreu
+> throttling térmico (~¼ das iterações → GAPs das Wren artificialmente altos); os números
+> abaixo são os da versão em clock cheio, coerentes com o A/B controlado.
+
 ### Principais achados
 
-**E1 — qualidade e GAP (10 sementes, config calibrada, A+B):**
-- Superam ou empatam o melhor conhecido: **Teste_03, Teste_04** (sempre abaixo, desvio ~0),
-  **Teste_01** e **Wren_01** (atingem o ótimo na melhor semente), **Teste_05** e **Wren_04**
-  (melhor semente abaixo da referência).
-- Instâncias difíceis: **Wren_02** (melhor +2,77%) e **Wren_03** (melhor +5,19%) — empacam
-  em ótimo local mesmo com o tempo dado.
-- Variância (importância dos boxplots): Teste_03/04 quase determinísticos (desvio ~0);
-  Teste_01/02 e Wren_02/03 com dispersão grande → uma única execução engana.
+**E1 — qualidade e GAP (10 sementes, config calibrada, A+B, com restart parcial):**
+- Superam ou empatam o melhor conhecido em **7 das 9 instâncias**: **Teste_03, Teste_04,
+  Teste_05, Wren_04** (sempre abaixo — Wren_04 chega a −0,50%), **Teste_01** (crava o ótimo nas
+  10 sementes), **Teste_02** e **Wren_01** (ótimo na melhor semente).
+- Instâncias difíceis: **Wren_02** (melhor +2,77%) e **Wren_03** (melhor +2,61%) — ainda acima,
+  mas agora **ambas abaixo de +3%** (antes do restart, Wren_03 ia a +5,19%).
+- **Efeito do restart parcial** (vs versão que parava por estagnação): melhor GAP de Wren_03
+  +5,19% → +2,61% (média +8,00% → +4,74%); médias caíram em quase tudo (Teste_02 +4,01% →
+  +0,62%; Teste_05 +0,23% → −1,84%; Wren_01 +3,28% → +1,86%; Wren_02 +5,74% → +3,81%). Nenhuma
+  regressão; todas VIÁVEIS.
+- Variância (importância dos boxplots): Teste_01/03/04 quase determinísticos (desvio ~0);
+  Wren_02/03 com dispersão maior → uma única execução engana.
 
 **E2 — estudo de vizinhanças (achado central):**
 - A vizinhança **B (ruína-reconstrução guiada por desperdício — nossa contribuição original)
-  é a mais forte** isoladamente.
-- **A+B nem sempre supera B sozinha** — em Teste_02 e Teste_05 chega a piorar.
+  é a mais forte** isoladamente (ex.: Teste_05 chega a −2,67% só com B).
+- **A+B nem sempre supera B sozinha** — em Teste_02 e Teste_05 B isolada é melhor.
 - **A (troca) sozinha é a mais fraca.** Conclusão para o relatório: o motor de melhoria é a
   ruína-reconstrução; a troca é complemento de intensificação, não a peça principal.
 
 **E3 — tamanho da população:**
-- Wren_01 melhora com população maior (GAP médio 3,64% → 2,43% de pop 20 → 100).
-- Teste_02 tem efeito misto (ruído domina nessa instância pequena).
+- Wren_01 melhora forte com população maior (GAP médio +3,03% → +0,07% de pop 20 → 100).
+- Teste_02 também melhora com pop maior (+1,55% → +0,74%).

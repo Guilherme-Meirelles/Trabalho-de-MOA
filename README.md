@@ -118,10 +118,16 @@ o insere na população. É a abordagem que melhor funciona para o SCP (Beasley 
   metade pior** (custo ≥ mediana) e é **rejeitado se for duplicata**. Como o melhor fica abaixo
   da mediana, ele nunca é substituído (elitismo implícito) e a diversidade é preservada.
 
+### Diversificação por restart parcial (`MAX_ESTAGNACAO`)
+Quando o incumbente não melhora por `MAX_ESTAGNACAO` iterações, em vez de **encerrar**, o laço
+faz um **restart parcial**: preserva o incumbente (elite) e **reconstrói o resto da população**
+com novas construções GRASP + busca local. Como o gerador já avançou, as soluções são diferentes
+das iniciais — o algoritmo escapa do ótimo local e **aproveita todo o orçamento de tempo** em
+vez de parar cedo. Foi a mudança de maior impacto nas instâncias difíceis (ver seção 10).
+
 ### Critérios de parada (combinados)
-- **Estagnação** (principal): para após `MAX_ESTAGNACAO` iterações sem melhorar o incumbente;
-- **Máximo de iterações** (`MAX_ITER`): rede de segurança;
-- **Tempo limite**: torna justa a comparação entre instâncias e os boxplots de GAP.
+- **Tempo limite** (principal): torna justa a comparação entre instâncias e os boxplots de GAP;
+- **Máximo de iterações** (`MAX_ITER`): rede de segurança.
 
 ## 6. Busca local (memética) — vizinhanças
 
@@ -185,7 +191,9 @@ scp_run.exe <instancia> <tempo_ms> <semente> <func> <alpha> <pop> <modo_bl>
 | 7 | modo de busca local (1=A, 2=B, 3=A+B) | 3 |
 
 Cada execução imprime um relatório legível e uma linha compacta `RESULTADO;...` para coleta
-automática pelos scripts.
+automática pelos scripts. Além disso, um **algoritmo de saída** grava a melhor solução em
+`Solucoes/<instancia>.sol` (custo, nº de colunas e os índices das colunas escolhidas em base 1),
+permitindo conferir e reutilizar a solução fora do terminal.
 
 ## 10. Experimentos e gráficos
 
@@ -193,28 +201,32 @@ Pasta `Resultados/`:
 
 - `run_experimentos.ps1` — campanha completa, gera `experimentos.csv`:
   - **E1** — boxplots de GAP: 10 sementes × 9 instâncias, config calibrada, busca local A+B;
-  - **E2** — estudo de vizinhanças: modos A, B e A+B nas instâncias rápidas;
+  - **E2** — estudo de vizinhanças: modos A, B e A+B em todas as instâncias;
   - **E3** — estudo de tamanho de população (20/50/100).
-- `plot_boxplots.py` — lê o CSV e gera `graficos/boxplot_gap.png`, `graficos/vizinhancas.png`
-  e `resumo_experimentos.md` (tabelas de melhor/médio/desvio/GAP/tempo).
+- `plot_boxplots.py` — lê o CSV e gera `graficos/boxplot_gap.png`, `graficos/vizinhancas.png`,
+  `graficos/populacao.png` e `resumo_experimentos.md` (tabelas de melhor/médio/desvio/GAP/tempo).
 - `resultados.md` — log completo: configuração, baseline, sensibilidade ao tempo e achados.
 
-### Principais resultados (10 sementes por instância)
-- Atingem ou superam o melhor conhecido: **Teste_03, Teste_04** (consistentemente abaixo),
-  **Teste_01, Wren_01** (ótimo na melhor semente), **Teste_05, Wren_04** (melhor semente abaixo
-  da referência).
-- Instâncias difíceis: **Wren_02** (melhor +2,77%) e **Wren_03** (melhor +5,19%), que empacam
-  em ótimo local.
-- **Estudo de vizinhanças:** a vizinhança **B (ruína-reconstrução) é o principal motor de
-  melhoria**; A (troca) sozinha é a mais fraca; A+B nem sempre supera B isolada.
-- **População:** maior tende a ajudar (Wren_01: GAP médio 3,64% → 2,43% de pop 20 → 100).
+### Principais resultados (10 sementes por instância, com restart parcial)
+- Atingem ou superam o melhor conhecido em 7 das 9 instâncias: **Teste_03, Teste_04, Teste_05,
+  Wren_04** (consistentemente abaixo — Wren_04 chega a −0,50%), **Teste_01, Teste_02, Wren_01**
+  (ótimo na melhor semente; Teste_01 crava o ótimo em todas as 10).
+- Instâncias difíceis: **Wren_02** (melhor +2,77%) e **Wren_03** (melhor +2,61%) — ainda acima,
+  mas agora **ambas abaixo de +3%**. O restart parcial derrubou o pior caso (Wren_03: melhor
+  +5,19% → **+2,61%**; GAP médio +8,00% → +4,74%) e as médias de quase todas as instâncias
+  (ex.: Teste_02 +4,01% → +0,62%; Wren_01 +3,28% → +1,86%).
+- **Estudo de vizinhanças (9 instâncias):** a vizinhança **B (ruína-reconstrução) é em geral o
+  principal motor de melhoria** (única a superar a referência em Wren_04, −0,48%); A (troca)
+  costuma ser a mais fraca. Nas Wren difíceis o padrão se atenua e **A+B é a mais robusta**
+  (melhor em Wren_03), o que justifica adotá-la como padrão na campanha E1.
+- **População:** maior tende a ajudar (Wren_01: GAP médio +3,03% → +0,07% de pop 20 → 100).
 
 ## 11. Como compilar e executar
 
 Compilador g++ (MSYS2 / UCRT64), C++17:
 
 ```
-g++ -std=c++17 -O2 algoritmo_genentico.cpp -o scp_run.exe
+g++ -std=c++17 -O2 algoritmo_genetico.cpp -o scp_run.exe
 ./scp_run.exe ./Tabela/Teste_01.dat
 ```
 
@@ -225,14 +237,14 @@ powershell -ExecutionPolicy Bypass -File Resultados\run_experimentos.ps1
 python Resultados\plot_boxplots.py
 ```
 
-> Observação: o arquivo principal é `algoritmo_genentico.cpp`, que inclui
+> Observação: o arquivo principal é `algoritmo_genetico.cpp`, que inclui
 > `arquivo_e_estrutura_de_dados.cpp` (leitura, estruturas e construção).
 
 ## 12. Estrutura do projeto
 
 ```
 arquivo_e_estrutura_de_dados.cpp  leitura, estruturas, 7 gulosas, GRASP, redundância
-algoritmo_genentico.cpp           seleção, cruzamento, mutação, busca local, laço, main
+algoritmo_genetico.cpp           seleção, cruzamento, mutação, busca local, laço, main
 Tabela/                           instâncias .dat
 Resultados/
   run_experimentos.ps1            campanha de experimentos
@@ -245,7 +257,9 @@ Resultados/
 
 ## 13. Próximos passos
 
-- Melhorar a **diversificação** nas instâncias Wren_02/Wren_03 (restart ao estagnar ou
-  população maior), que ainda empacam em ótimo local.
+- O **restart parcial ao estagnar** (seção 5) já atacou a diversificação nas instâncias
+  Wren_02/Wren_03: em vez de empacar e parar cedo, elas agora usam todo o tempo e o GAP caiu
+  (ver seção 10). Próximo refino: variar o tamanho do restart (quantos indivíduos reconstruir)
+  ou combiná-lo com população maior nas Wren.
 - Avaliar tornar a busca local **B sozinha** o padrão em algumas instâncias, dado o resultado
   do estudo de vizinhanças.

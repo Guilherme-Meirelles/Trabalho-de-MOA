@@ -16,6 +16,8 @@ Se o valor sorteado está entre dois elementos do vetor, escolhe-se o elemento m
 #include <random>
 #include <iostream>
 #include <chrono>
+#include <fstream>
+#include <filesystem>
 #include "arquivo_e_estrutura_de_dados.cpp"
 
 using namespace std;
@@ -509,6 +511,30 @@ Validacao validar_solucao(const Solucao& solucao){
     return { cobertas == linhas, cobertas, custo };
 }
 
+// Algoritmo de saida: grava a melhor solucao encontrada em um arquivo legivel dentro da pasta
+// 'Solucoes', com o custo, o numero de colunas e os indices das colunas escolhidas (em base 1,
+// como na instancia de entrada). Retorna o caminho do arquivo gerado (vazio em caso de falha).
+string salvar_solucao_em_arquivo(const Solucao& solucao, const string& caminho_instancia){
+
+    string base = filesystem::path(caminho_instancia).stem().string();   // nome sem pasta/extensao
+    filesystem::create_directories("Solucoes");
+    string destino = "Solucoes/" + base + ".sol";
+
+    ofstream arquivo(destino);
+    if (!arquivo){ return ""; }   // se nao abrir, apenas nao grava (nao interrompe o programa)
+
+    arquivo << fixed << setprecision(2);
+    arquivo << "Instancia: " << caminho_instancia << "\n";
+    arquivo << "Custo: " << solucao.custo << "\n";
+    arquivo << "Numero de colunas: " << solucao.colunas.size() << "\n";
+    arquivo << "Colunas escolhidas (base 1):\n";
+    for (int i = 0; i < (int)solucao.colunas.size(); i++){
+        arquivo << (solucao.colunas[i] + 1) << ((i + 1 < (int)solucao.colunas.size()) ? " " : "\n");
+    }
+    arquivo.close();
+    return destino;
+}
+
 int main(int argc, char** argv){
 
     // Argumentos (todos opcionais, em ordem). Sem argumentos, comporta-se como antes.
@@ -525,7 +551,7 @@ int main(int argc, char** argv){
 
     // Parametros do laco geracional.
     const int   MAX_ITER        = 50000;   // teto de filhos gerados (rede de seguranca)
-    const int   MAX_ESTAGNACAO  = 5000;    // para apos N iteracoes sem melhorar o incumbente
+    const int   MAX_ESTAGNACAO  = 5000;    // apos N iteracoes sem melhorar: restart parcial (diversificacao)
 
     auto inicio = chrono::steady_clock::now();
 
@@ -547,7 +573,6 @@ int main(int argc, char** argv){
     int sem_melhora = 0;
 
     while (iteracoes < MAX_ITER
-           && sem_melhora < MAX_ESTAGNACAO
            && chrono::duration_cast<chrono::milliseconds>(chrono::steady_clock::now() - inicio).count() < TEMPO_LIMITE_MS){
 
         // Selecao por roleta (favorece menor custo) - funcoes ja existentes.
@@ -576,6 +601,21 @@ int main(int argc, char** argv){
             sem_melhora = sem_melhora + 1;
         }
         iteracoes = iteracoes + 1;
+
+        // Restart parcial ao estagnar: em vez de encerrar, preserva o elite e
+        // reconstroi o resto da populacao (GRASP + busca local, gerador ja avancado
+        // -> solucoes diferentes), usando o restante do orcamento de tempo.
+        if (sem_melhora >= MAX_ESTAGNACAO){
+            construir_populacao(func_global, alpha_global, tamanho_populacao, 1000);
+            for (int i = 0; i < (int)populacao.size(); i++){
+                populacao[i] = busca_local(populacao[i]);
+                if (populacao[i].custo < melhor.custo){
+                    melhor = populacao[i];
+                }
+            }
+            populacao[0] = melhor;   // reinsere o incumbente (elitismo entre restarts)
+            sem_melhora = 0;
+        }
     }
 
     long tempo_ms = chrono::duration_cast<chrono::milliseconds>(chrono::steady_clock::now() - inicio).count();
@@ -597,6 +637,12 @@ int main(int argc, char** argv){
     cout << "Validacao: " << (v.viavel ? "VIAVEL" : "INVIAVEL")
          << "   linhas cobertas = " << v.linhas_cobertas << "/" << linhas
          << "   custo recalculado = " << v.custo << endl;
+
+    // Algoritmo de saida: grava a melhor solucao em arquivo (alem de exibi-la no terminal).
+    string arquivo_saida = salvar_solucao_em_arquivo(melhor, caminho);
+    if (!arquivo_saida.empty()){
+        cout << "Solucao gravada em: " << arquivo_saida << endl;
+    }
 
     // Linha compacta para coleta automatica (scripts de experimento).
     // Campos: instancia;custo;n_col;iteracoes;tempo_ms;limite_ms;viavel;func;alpha;semente;modo_bl;pop

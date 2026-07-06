@@ -52,7 +52,7 @@ e2 = filtra("E2")
 modo_nome = {1: "A (troca)", 2: "B (ruína)", 3: "A+B"}
 insts2 = [i for i in ORDEM if any(r["instancia"] == i for r in e2)]
 if e2:
-    fig, ax = plt.subplots(figsize=(12, 5))
+    fig, ax = plt.subplots(figsize=(max(12, 1.6 * len(insts2)), 5))
     pos = 0
     ticks, labels = [], []
     cores = {1: "#8ecae6", 2: "#ffb703", 3: "#90be6d"}
@@ -77,6 +77,38 @@ if e2:
     ax.grid(axis="y", ls=":", alpha=0.6)
     plt.tight_layout()
     plt.savefig(os.path.join(GRAF, "vizinhancas.png"), dpi=130)
+    plt.close()
+
+# ---------- E3: tamanho da populacao (barras agrupadas do GAP medio) ----------
+e3g = filtra("E3")
+if e3g:
+    insts3 = [i for i in ORDEM if any(r["instancia"] == i for r in e3g)]
+    pops3 = sorted({r["pop"] for r in e3g})
+    cores3 = {20: "#8ecae6", 50: "#ffb703", 100: "#90be6d"}
+    x = range(len(insts3))
+    largura = 0.8 / len(pops3)
+    fig, ax = plt.subplots(figsize=(max(7, 2.2 * len(insts3)), 5))
+    for k, p in enumerate(pops3):
+        medias = []
+        for i in insts3:
+            vals = [r["gap_pct"] for r in e3g if r["instancia"] == i and r["pop"] == p]
+            medias.append(sum(vals) / len(vals) if vals else 0.0)
+        posicoes = [xi + k * largura for xi in x]
+        barras = ax.bar(posicoes, medias, largura, label="pop = %d" % p,
+                        color=cores3.get(p, "#adb5bd"))
+        for b, mv in zip(barras, medias):
+            ax.annotate("%+.2f" % mv, (b.get_x() + b.get_width() / 2, b.get_height()),
+                        ha="center", va="bottom" if mv >= 0 else "top",
+                        fontsize=8, xytext=(0, 2 if mv >= 0 else -2), textcoords="offset points")
+    ax.axhline(0, color="red", ls="--", lw=1)
+    ax.set_ylabel("GAP médio (%)")
+    ax.set_title("Estudo do tamanho da população (E3)")
+    ax.set_xticks([xi + largura * (len(pops3) - 1) / 2 for xi in x])
+    ax.set_xticklabels(insts3)
+    ax.legend()
+    ax.grid(axis="y", ls=":", alpha=0.6)
+    plt.tight_layout()
+    plt.savefig(os.path.join(GRAF, "populacao.png"), dpi=130)
     plt.close()
 
 # ---------- Tabelas-resumo (markdown) ----------

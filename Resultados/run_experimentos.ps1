@@ -47,11 +47,10 @@ foreach ($inst in $insts) {
   for ($s = 1; $s -le $N1; $s++) { Run-One "E1" $inst $s $inst.func $inst.alpha 50 3 $inst.tl }
 }
 
-# ----- E2: estudo de vizinhancas (modos 1,2,3) nas instancias rapidas -----
+# ----- E2: estudo de vizinhancas (modos 1,2,3) em todas as instancias -----
 Write-Host "=== E2: estudo de vizinhancas ==="
 $N2 = 6
-$rapidas = $insts | Where-Object { $_.name -like "Teste_*" -or $_.name -eq "Wren_01" }
-foreach ($inst in $rapidas) {
+foreach ($inst in $insts) {
   foreach ($modo in 1,2,3) {
     for ($s = 1; $s -le $N2; $s++) { Run-One "E2" $inst $s $inst.func $inst.alpha 50 $modo $inst.tl }
   }
