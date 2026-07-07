@@ -36,7 +36,7 @@ insts = [i for i in ORDEM if any(r["instancia"] == i for r in e1)]
 dados = [[r["gap_pct"] for r in e1 if r["instancia"] == i] for i in insts]
 
 fig, ax = plt.subplots(figsize=(11, 5))
-ax.boxplot(dados, labels=insts, showmeans=True)
+ax.boxplot(dados, label=insts, showmeans=True)
 ax.axhline(0, color="red", ls="--", lw=1, label="melhor conhecido (GAP=0)")
 ax.set_ylabel("GAP (%)")
 ax.set_title("Distribuição do GAP por instância (E1, %d sementes, busca local A+B)" % len(dados[0]))
