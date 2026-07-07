@@ -5,7 +5,7 @@ Resumo direto das últimas mudanças, para você se situar rápido. Detalhes com
 
 ## ⚠️ Mudanças que encostaram no seu código (leia primeiro)
 
-1. **Correção de bug na `mutacao`** (`algoritmo_genentico.cpp`, em
+1. **Correção de bug na `mutacao`** (`algoritmo_genetico.cpp`, em
    `adicionar_colunas_e_eliminar_mutacoes`). A mutação podia sortear uma coluna **já
    presente** na solução e chamar `adicionar_coluna` de novo, contando dobrado a cobertura
    e o custo. Isso fazia a eliminação de redundância remover uma coluna realmente necessária
@@ -48,7 +48,7 @@ não foi alterado** — só foram adicionadas funções novas.
 ## Como rodar
 
 ```
-g++ -std=c++17 -O2 algoritmo_genentico.cpp -o scp_run.exe
+g++ -std=c++17 -O2 algoritmo_genetico.cpp -o scp_run.exe
 ./scp_run.exe ./Tabela/Teste_01.dat
 
 # campanha completa de experimentos:
