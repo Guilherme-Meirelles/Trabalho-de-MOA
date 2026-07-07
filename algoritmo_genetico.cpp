@@ -61,6 +61,7 @@ vector<double> vetor_de_probabilidade(vector<Solucao> solucoes){
 
 }
 
+//Gerador aleatório de números reais
 Sorteados sortear_de_0_a_n_real(float n)
 {
 
@@ -69,12 +70,15 @@ Sorteados sortear_de_0_a_n_real(float n)
     return resultado;
 }
 
+//Gerador aleatório de números inteiros
 int sortear_de_0_a_n(int n)
 {
     uniform_int_distribution<> dist(0, n);
     int resultado = dist(gerador);
     return resultado;
 }
+
+// Soluçõe selecionadas dentre a população para serem processadas pelo algoritmo genético
 void solucoes_sorteadas(vector<double> vetor_solucoes_inversas, Sorteados numeros_sorteados){
 
     
@@ -182,6 +186,8 @@ Solucao cruzamento(const Solucao& pai1, const Solucao& pai2){
     return salvar_solucao();
 }
 
+// Função auxiliar que adiciona colunas aleatórias na solução filha para gerar mutação
+// Verifica-se de não adicionar colunas duplicadas e retira-se redundâncias de colunas entre as colunas não adicionadas na solução
 void adicionar_colunas_e_eliminar_mutacoes(vector<int> colunas_adicionadas){
 
     vector<int> selecionadas;
@@ -213,7 +219,7 @@ void adicionar_colunas_e_eliminar_mutacoes(vector<int> colunas_adicionadas){
     }
 }
 
-
+// Função que gera uma mutação na solução filha
 Solucao mutacao(Solucao filho, int constante){
 
     
