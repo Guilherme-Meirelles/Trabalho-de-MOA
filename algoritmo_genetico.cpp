@@ -1,19 +1,7 @@
-/*
-Ideia para a parte de seleção: 
-
-Para solução dada pelo algoritmo de construção: aplicamos '1 / custo_da_solucao' e armazenamos em um vetor.
-A partir disso somamos os resultados armazenados e fazemos 'x = 1 / soma dos valores'.
-Depois multiplicamos todos os valores armazenados no vetor por x, desta forma temos a probabilidade de cada solução ser escolhida de um valor 0 a 1.
-Para facilitar na seleção podemos somar todos os elementos dester vetor pelo elemento da posição anteriro, neste sentido o último elemento do vetor será igual 1.
-
-Para selecionar probabilisticamente, podemos escolher sortear um número aleatório no intervalo de 0 a 100, 
-e a partir disso selecionar a solução que está nesta faixa de valores armazenados.
-Se o valor sorteado está entre dois elementos do vetor, escolhe-se o elemento maior.
-
-*/
 
 // Função para sortear um número
 #include <random>
+
 #include <iostream>
 #include <chrono>
 #include <fstream>
