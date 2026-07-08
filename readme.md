@@ -1,14 +1,14 @@
 # Execução do arquivo
 
 Compilação:
-- g++ arquivo_genetico.cpp -o arquivo_genetico.exe
+- g++ algoritmo_genetico.cpp -o algoritmo_genetico.exe
 
 Execução:
-- .\arquivo_genetico.exe 
+- .\algoritmo_genetico.exe 
 
 Execução definido parâmetros, exemplo:
 
-- .\arquivo_genetico.exe ./Tabela/teste_02.dat 20000 4 5 0.2f 60 3 
+- .\algoritmo_genetico.exe ./Tabela/Teste_02.dat 20000 4 5 0.2f 60 3 
 
 Definição em ordem cada parâmetreo e o valor dele caso não seja inserido no comando de execução:
 
